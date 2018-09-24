@@ -40,7 +40,6 @@ def check_test(output_dir, gt_dir):
     diff = abs(b_row - gt_b_row) + abs(b_col - gt_b_col) + \
         abs(r_row - gt_r_row) + abs(r_col - gt_r_col)
 
-    print(b_row - gt_b_row, '|', b_col - gt_b_col, '|', r_row - gt_r_row, '|', r_col - gt_r_col)
     print(diff, diff_max)
 
     if diff > diff_max:
@@ -80,6 +79,7 @@ if __name__ == '__main__':
         from os import makedirs
 
         tests_dir = argv[1]
+        start_all = time()
 
         results = []
         for input_dir in sorted(glob(join(tests_dir, '[0-9][0-9]_input'))):
@@ -114,3 +114,4 @@ if __name__ == '__main__':
 
         description, mark = grade(results)
         print('Mark:', mark, description)
+        print('Time:', time() - start_all)
