@@ -58,31 +58,62 @@ def preprocess_image(image):
     return red, green, blue, fr_len, fr_wi
 
 
+# def cut_channels(red, green, blue, rc, gc, bc):
+#     rca, gca, bca = aggregate_ul(rc, gc, bc)
+#     print(rca, gca, bca)
+#     red_a = red[rca[0]:, rca[1]:]
+#     green_a = green[gca[0]:, gca[1]:]
+#     blue_a = blue[bca[0]:, bca[1]:]
+#
+#     shx, shy = (min((ch.shape[0] for ch in (red_a, green_a, blue_a))),
+#                     min((ch.shape[1] for ch in (red_a, green_a, blue_a))))
+#
+#     return red_a[:shx, :shy], green_a[:shx, :shy], blue_a[:shx, :shy]
+
+def cut_channels(red, green, blue, rc, gc, bc):
+    rca, gca, bca = aggregate_ul(rc, gc, bc)
+    print(rca, gca, bca)
+    shx, shy = red.shape
+
+    shx, shy = (min((shx - ca[0] for ca in (rca, gca, bca))),
+                    min((shy - ca[1] for ca in (rca, gca, bca))))
+
+    return (red[rca[0]:rca[0] + shx, rca[1]:rca[1] + shy],
+            green[gca[0]:gca[0] + shx, gca[1]:gca[1] + shy],
+            blue[bca[0]:bca[0] + shx, bca[1]:bca[1] + shy])
+
+
+def aggregate_ul(rc, gc, bc):
+    gca = max((rc[0], gc[0], bc[0])), max((rc[1], gc[1], bc[1]))
+    rca = max((0, gca[0] - rc[0])), max((0, gca[1] - rc[1]))
+    bca = max((0, gca[0] - bc[0])), max((0, gca[1] - bc[1]))
+    return rca, gca, bca
+
+
+
+
 def align(image, g_coord, offset=15, sim_method=cv2.TM_CCORR_NORMED, best_res=max):
     if image.shape[1] / 1000 > 1:
         offset = 80
     red, green, blue, fr_len, fr_wi = preprocess_image(image)
 
-    green_loc = (offset, offset)
-    _, green_can = _locate_on_canvas(green, green_loc, offset)
+    def get_bbox(im):
+        return im[offset:-offset, offset:-offset]
 
-    # del green
-    # import gc
-    # gc.collect()
-
-    red_res = cv2.matchTemplate(green_can, red, sim_method)
-    blue_res = cv2.matchTemplate(green_can, blue, sim_method)
+    red_res = cv2.matchTemplate(green, get_bbox(red), sim_method)
+    blue_res = cv2.matchTemplate(green, get_bbox(blue), sim_method)
 
     i = 1 if best_res == max else 2
     red_loc = cv2.minMaxLoc(red_res)[-i]
     blue_loc = cv2.minMaxLoc(blue_res)[-i]
 
-    rc = np.array(red_loc[::-1])
-    gc = np.array(green_loc[::-1])
-    bc = np.array(blue_loc[::-1])
-    img = stack_channels(_locate_on_canvas(red, rc, offset)[1],
-                         _locate_on_canvas(green, rc, offset)[1],
-                         _locate_on_canvas(blue, bc, offset)[1])
+    print(red_loc, blue_loc)
+
+    rc = np.array(red_loc[::-1]) - offset
+    bc = np.array(blue_loc[::-1]) - offset
+    gc = (0, 0)
+
+    img = stack_channels(*cut_channels(red, green, blue, rc, gc, bc))
 
     # get relative green coordinates
     g_coord = np.array(g_coord) - np.array((red.shape[0] + 3 * fr_len, 0))
@@ -94,11 +125,6 @@ def align(image, g_coord, offset=15, sim_method=cv2.TM_CCORR_NORMED, best_res=ma
     # convert to absolute
     r_coord[0] += blue.shape[0] * 2 + 5 * fr_len
     b_coord[0] += fr_len
-
-    import os
-    import psutil
-    process = psutil.Process(os.getpid())
-    print('Memory:', process.memory_info().peak_wset / 2 ** 20)
 
     return img, b_coord, r_coord
 
@@ -113,3 +139,4 @@ def _locate_on_canvas(ch, ul, offset):
     br = (ul[0] + ch.shape[0], ul[1] + ch.shape[1])
     canvas[_get_bbox_slice(ul, br)] = ch
     return br, canvas
+

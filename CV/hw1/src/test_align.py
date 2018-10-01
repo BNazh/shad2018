@@ -82,7 +82,7 @@ if __name__ == '__main__':
         start_all = time()
 
         results = []
-        for input_dir in sorted(glob(join(tests_dir, '[0-9][0-9]_input'))):
+        for input_dir in sorted(glob(join(tests_dir, '[0-9][0-9]_input')))[:]:
             output_dir = sub('input$', 'output', input_dir)
             makedirs(output_dir, exist_ok=True)
             gt_dir = sub('input$', 'gt', input_dir)
